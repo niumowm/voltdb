@@ -270,8 +270,8 @@ class ProcedureStatsCollector extends SiteStatsSource {
 
         rowValues[columnNameToIndex.get("INVOCATIONS")] = invocations;
         rowValues[columnNameToIndex.get("TIMED_INVOCATIONS")] = timedInvocations;
-        rowValues[columnNameToIndex.get("MIN_EXECUTION_TIME")] = minExecutionTime;
-        rowValues[columnNameToIndex.get("MAX_EXECUTION_TIME")] = maxExecutionTime;
+        rowValues[columnNameToIndex.get("MIN_EXECUTION_TIME")] = fixMinMaxValue(minExecutionTime);
+        rowValues[columnNameToIndex.get("MAX_EXECUTION_TIME")] = fixMinMaxValue(maxExecutionTime);
         if (timedInvocations != 0) {
             rowValues[columnNameToIndex.get("AVG_EXECUTION_TIME")] =
                  (totalTimedExecutionTime / timedInvocations);
@@ -286,10 +286,32 @@ class ProcedureStatsCollector extends SiteStatsSource {
         }
         rowValues[columnNameToIndex.get("ABORTS")] = abortCount;
         rowValues[columnNameToIndex.get("FAILURES")] = failureCount;
-        rowValues[columnNameToIndex.get("MIN_RESULT_SIZE")] = minResultSize;
-        rowValues[columnNameToIndex.get("MAX_RESULT_SIZE")] = maxResultSize;
-        rowValues[columnNameToIndex.get("MIN_PARAMETER_SET_SIZE")] = minParameterSetSize;
-        rowValues[columnNameToIndex.get("MAX_PARAMETER_SET_SIZE")] = maxParameterSetSize;
+        rowValues[columnNameToIndex.get("MIN_RESULT_SIZE")] = fixMinMaxValue(minResultSize);
+        rowValues[columnNameToIndex.get("MAX_RESULT_SIZE")] = fixMinMaxValue(maxResultSize);
+        rowValues[columnNameToIndex.get("MIN_PARAMETER_SET_SIZE")] = fixMinMaxValue(minParameterSetSize);
+        rowValues[columnNameToIndex.get("MAX_PARAMETER_SET_SIZE")] = fixMinMaxValue(maxParameterSetSize);
+    }
+
+    /**
+     * Local utility method to convert starting values to ones that better indicate
+     * that they haven't been initialized.
+     *
+     * @param valueIn  input value
+     * @return  adjusted output value
+     */
+    private static Long fixMinMaxValue(final Long valueIn) {
+        return (valueIn == Long.MAX_VALUE || valueIn == Long.MIN_VALUE ? null : valueIn);
+    }
+
+    /**
+     * Local utility method to convert starting values to ones that better indicate
+     * that they haven't been initialized.
+     *
+     * @param valueIn  input value
+     * @return  adjusted output value
+     */
+    private static Integer fixMinMaxValue(final Integer valueIn) {
+        return (valueIn == Integer.MAX_VALUE || valueIn == Integer.MIN_VALUE ? null : valueIn);
     }
 
     /**
