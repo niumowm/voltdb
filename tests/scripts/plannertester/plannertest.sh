@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-${VOLTDB_HOME:="../../.."}
+: ${VOLTDB_HOME:="../../.."}
 
 
 VOLTDBJAR=`ls $VOLTDB_HOME/voltdb/voltdb-[23].*.jar | grep -v "doc.jar" | head -1`
