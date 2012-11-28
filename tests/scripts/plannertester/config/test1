@@ -2,10 +2,10 @@ Name:
 test1
 
 Ref:
-./tests/scripts/plannertester/baseline/test1
+./baseline/test1
 
 DDL:
-./tests/frontend/org/voltdb/planner/testplans-plannerTester-ddl.sql
+../../../tests/frontend/org/voltdb/planner/testplans-plannerTester-ddl.sql
 
 Base Name:
 testplans-plannerTester-ddl
