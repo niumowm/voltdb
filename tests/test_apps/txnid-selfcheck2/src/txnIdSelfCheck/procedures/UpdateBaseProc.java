@@ -1,5 +1,5 @@
 /* This file is part of VoltDB.
- * Copyright (C) 2008-2012 VoltDB Inc.
+ * Copyright (C) 2008-2013 VoltDB Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -38,7 +38,7 @@ public class UpdateBaseProc extends VoltProcedure {
             "DELETE FROM partitioned WHERE cid = ? and cnt < ?;");
 
     public final SQLStmt p_getAdhocData = new SQLStmt(
-            "SELECT * FROM adhocp ORDER BY ts DESC LIMIT 1");
+            "SELECT * FROM adhocp ORDER BY ts DESC, id LIMIT 1");
 
     public final SQLStmt p_insert = new SQLStmt(
             "INSERT INTO partitioned VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");

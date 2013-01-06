@@ -1,17 +1,17 @@
 /* This file is part of VoltDB.
- * Copyright (C) 2008-2012 VoltDB Inc.
+ * Copyright (C) 2008-2013 VoltDB Inc.
  *
- * VoltDB is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  *
- * VoltDB is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with VoltDB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -187,7 +187,7 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, Mailb
     LeaderAppointer m_leaderAppointer = null;
     GlobalServiceElector m_globalServiceElector = null;
     MpInitiator m_MPI = null;
-    long m_iv2InitiatorStartingTxnIds[] = new long[0];
+    Map<Integer, Long> m_iv2InitiatorStartingTxnIds = new HashMap<Integer, Long>();
 
 
     // Should the execution sites be started in recovery mode
@@ -430,21 +430,24 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, Mailb
                                     iv2config.getReplicationFactor() + ".\n" +
                                     "No more nodes can join.", false, null);
                         }
-                        m_iv2InitiatorStartingTxnIds = new long[partitionsToReplace.size()];
                         for (int ii = 0; ii < partitionsToReplace.size(); ii++) {
-                            m_iv2InitiatorStartingTxnIds[ii] = TxnEgo.makeZero(partitionsToReplace.get(ii)).getTxnId();
+                            Integer partition = partitionsToReplace.get(ii);
+                            m_iv2InitiatorStartingTxnIds.put( partition, TxnEgo.makeZero(partition).getTxnId());
                         }
                         m_iv2Initiators = createIv2Initiators(partitionsToReplace, true);
                     }
                     else {
                         List<Integer> partitions =
                             ClusterConfig.partitionsForHost(topo, m_messenger.getHostId());
-                        m_iv2InitiatorStartingTxnIds = new long[partitions.size()];
                         for (int ii = 0; ii < partitions.size(); ii++) {
-                            m_iv2InitiatorStartingTxnIds[ii] = TxnEgo.makeZero(partitions.get(ii)).getTxnId();
+                            Integer partition = partitions.get(ii);
+                            m_iv2InitiatorStartingTxnIds.put(partition, TxnEgo.makeZero(partitions.get(ii)).getTxnId());
                         }
                         m_iv2Initiators = createIv2Initiators(partitions, false);
                     }
+                    m_iv2InitiatorStartingTxnIds.put(
+                            MpInitiator.MP_INIT_PID,
+                            TxnEgo.makeZero(MpInitiator.MP_INIT_PID).getTxnId());
                     // each node has an MPInitiator (and exactly 1 node has the master MPI).
                     long mpiBuddyHSId = m_iv2Initiators.get(0).getInitiatorHSId();
                     m_MPI = new MpInitiator(m_messenger, mpiBuddyHSId, m_statsAgent);
@@ -2114,7 +2117,7 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, Mailb
     }
 
     @Override
-    public void onRestoreCompletion(long txnId, long perPartitionTxnIds[]) {
+    public void onRestoreCompletion(long txnId, Map<Integer, Long> perPartitionTxnIds) {
 
         /*
          * Command log is already initialized if this is a rejoin
