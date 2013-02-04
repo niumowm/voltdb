@@ -1798,7 +1798,9 @@ implements Runnable, SiteTransactionConnection, SiteProcedureConnection, SiteSna
                                       new long[0],//this param not used pre-iv2
                                       null,
                                       m_systemProcedureContext,
-                                      CoreUtils.getHostnameOrAddress());
+                                      CoreUtils.getHostnameOrAddress(),
+                                      TransactionIdManager
+                                          .getTimestampFromTransactionId(snapshotMsg.m_roadblockTransactionId));
             if (SnapshotSiteProcessor.ExecutionSitesCurrentlySnapshotting.isEmpty() &&
                 snapshotMsg.crash) {
                 String msg = "Partition detection snapshot completed. Shutting down. " +
@@ -2466,7 +2468,8 @@ implements Runnable, SiteTransactionConnection, SiteProcedureConnection, SiteSna
             long[] planFragmentIds,
             long[] inputDepIds,
             ParameterSet[] parameterSets,
-            long txnId,
+            long txnId,//txnid is both sphandle and uniqueid pre-iv2
+            long txnIdAsUniqueId,
             boolean readOnly) throws EEException
     {
         return ee.executePlanFragments(
@@ -2476,6 +2479,7 @@ implements Runnable, SiteTransactionConnection, SiteProcedureConnection, SiteSna
             parameterSets,
             txnId,
             lastCommittedTxnId,
+            txnIdAsUniqueId,
             readOnly ? Long.MAX_VALUE : getNextUndoToken());
     }
 
@@ -2696,6 +2700,7 @@ implements Runnable, SiteTransactionConnection, SiteProcedureConnection, SiteSna
                             new ParameterSet[] { params },
                             txnState.txnId,
                             lastCommittedTxnId,
+                            txnState.txnId,
                             txnState.isReadOnly() ? Long.MAX_VALUE : getNextUndoToken())[0];
 
                     sendDependency(currentFragResponse, outputDepId, dependency);
@@ -2911,7 +2916,7 @@ implements Runnable, SiteTransactionConnection, SiteProcedureConnection, SiteSna
 
     @Override
     public void exportAction(boolean syncAction,
-                             int ackOffset,
+                             long ackOffset,
                              Long sequenceNumber,
                              Integer partitionId,
                              String tableSignature)

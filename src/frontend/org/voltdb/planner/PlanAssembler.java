@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.json_voltpatches.JSONException;
 import org.voltdb.VoltType;
 import org.voltdb.catalog.CatalogMap;
 import org.voltdb.catalog.Cluster;
@@ -929,10 +930,8 @@ public class PlanAssembler {
         orderByNode.addAndLinkChild(root);
         orderByNode.generateOutputSchema(m_catalogDb);
 
-        // The method for determining that the ordering is on a unique value or unique combination of values is a little weak, here.
         // In theory, for a single-table query, there just needs to exist a uniqueness constraint (primary key or other unique index)
         // on some of the ORDER BY values regardless of whether the associated index is used in the selected plan.
-        // For now, we only recognize such an index if it is currently used in the plan.
         // Strictly speaking, if it was used at the top of the plan, this function would have already returned without adding an orderByNode.
         // The interesting case here, addressing issue ENG-3335, is when the index scan is in the distributed part of the plan.
         // Then, the orderByNode is required to re-order the results at the coordinator.
@@ -941,16 +940,52 @@ public class PlanAssembler {
         // TODO: In theory, it is possible to analyze the join criteria and/or projected columns
         // to determine whether the particular join preserves the uniqueness of its index-scanned input.
         if (m_parsedSelect.tableList.size() == 1) {
-            List<AbstractPlanNode> indexScans = root.findAllNodesOfType(PlanNodeType.INDEXSCAN);
-            if (indexScans.size() == 1) {
-                IndexScanPlanNode ixnode = (IndexScanPlanNode) (indexScans.get(0));
-                // The index must be associated with the expected ordering.
-                if (ixnode.getSortDirection() != SortDirectionType.INVALID) {
-                    Index index = ixnode.getCatalogIndex();
-                    // Index must guarantee uniqueness
-                    if (index.getUnique()) {
-                        orderByNode.setOrderingByUniqueColumns();
+
+            Table table = m_parsedSelect.tableList.get(0);
+
+            // get all of the columns in the sort
+            List<AbstractExpression> orderExpressions = orderByNode.getSortExpressions();
+
+            // search indexes for one that makes the order by deterministic
+            for (Index index : table.getIndexes()) {
+                // skip non-unique indexes
+                if (!index.getUnique()) {
+                    continue;
+                }
+
+                // get the list of expressions for the index
+                List<AbstractExpression> indexExpressions = new ArrayList<AbstractExpression>();
+
+                String jsonExpr = index.getExpressionsjson();
+                // if this is a pure-column index...
+                if (jsonExpr.isEmpty()) {
+                    for (ColumnRef cref : index.getColumns()) {
+                        Column col = cref.getColumn();
+                        TupleValueExpression tve = new TupleValueExpression();
+                        tve.setColumnIndex(col.getIndex());
+                        tve.setColumnName(col.getName());
+                        tve.setExpressionType(ExpressionType.VALUE_TUPLE);
+                        tve.setHasAggregate(false);
+                        tve.setTableName(table.getTypeName());
+                        tve.setValueSize(col.getSize());
+                        tve.setValueType(VoltType.get((byte) col.getType()));
+                        indexExpressions.add(tve);
                     }
+                }
+                // if this is a fancy expression-based index...
+                else {
+                    try {
+                        indexExpressions = AbstractExpression.fromJSONArrayString(jsonExpr, null);
+                    } catch (JSONException e) {
+                        e.printStackTrace(); // danger will robinson
+                        assert(false);
+                        return null;
+                    }
+                }
+
+                // if the sort covers the index, then it's a unique sort
+                if (orderExpressions.containsAll(indexExpressions)) {
+                    orderByNode.setOrderingByUniqueColumns();
                 }
             }
         }
