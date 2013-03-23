@@ -20,10 +20,11 @@
 
 #include "common/SerializableEEException.h"
 
-#include "rapidjson/document.h"
+#include "jsoncpp/jsoncpp.h"
 
 #include <cstdio>
 #include <cstdlib>
+#include <cassert>
 
 namespace voltdb {
 
@@ -41,80 +42,80 @@ namespace voltdb {
     public:
 
         int32_t asInt() const {
-            if (m_value.IsNull() || (m_value.IsInt() == false)) {
+            if (m_value.isNull() || (m_value.isInt() == false)) {
                 throw SerializableEEException(VOLT_EE_EXCEPTION_TYPE_EEEXCEPTION,
                                               "PlannerDomValue: int value is null or not an integer");
             }
-            return m_value.GetInt();
+            return m_value.asInt();
         }
 
         int64_t asInt64() const {
-            if (m_value.IsNull()) {
+            if (m_value.isNull()) {
                 throw SerializableEEException(VOLT_EE_EXCEPTION_TYPE_EEEXCEPTION,
                                               "PlannerDomValue: int64 value is null");
             }
-            else if (m_value.IsInt64()) {
-                return m_value.GetInt64();
+            else if (m_value.isInt64()) {
+                return m_value.asInt64();
             }
-            else if (m_value.IsInt()) {
-                return m_value.GetInt();
+            else if (m_value.isInt()) {
+                return m_value.asInt();
             }
             throw SerializableEEException(VOLT_EE_EXCEPTION_TYPE_EEEXCEPTION,
                                           "PlannerDomValue: int64 value is non-integral");
         }
 
         double asDouble() const {
-            if (m_value.IsNull()) {
+            if (m_value.isNull()) {
                 throw SerializableEEException(VOLT_EE_EXCEPTION_TYPE_EEEXCEPTION,
                                               "PlannerDomValue: double value is null");
             }
-            else if (m_value.IsDouble()) {
-                return m_value.GetDouble();
+            else if (m_value.isDouble()) {
+                return m_value.asDouble();
             }
-            else if (m_value.IsInt()) {
-                return m_value.GetInt();
+            else if (m_value.isInt()) {
+                return m_value.asInt();
             }
-            else if (m_value.IsInt64()) {
-                return (double) m_value.GetInt64();
+            else if (m_value.isInt64()) {
+                return (double) m_value.asInt64();
             }
             throw SerializableEEException(VOLT_EE_EXCEPTION_TYPE_EEEXCEPTION,
                                           "PlannerDomValue: double value is not a number");
         }
 
         bool asBool() const {
-            if (m_value.IsNull() || (m_value.IsBool() == false)) {
+            if (m_value.isNull() || (m_value.isBool() == false)) {
                 char msg[1024];
                 snprintf(msg, 1024, "PlannerDomValue: value is null or not a bool");
                 throw SerializableEEException(VOLT_EE_EXCEPTION_TYPE_EEEXCEPTION, msg);
             }
-            return m_value.GetBool();
+            return m_value.asBool();
         }
 
         std::string asStr() const {
-            if (m_value.IsNull() || (m_value.IsString() == false)) {
+            if (m_value.isNull() || (m_value.isString() == false)) {
                 char msg[1024];
                 snprintf(msg, 1024, "PlannerDomValue: value is null or not a string");
                 throw SerializableEEException(VOLT_EE_EXCEPTION_TYPE_EEEXCEPTION, msg);
             }
-            return m_value.GetString();
+            return m_value.asString();
 
         }
 
         bool hasKey(const char *key) const {
-            return m_value.HasMember(key);
+            return m_value.isMember(key);
         }
 
         bool hasNonNullKey(const char *key) const {
             if (!hasKey(key)) {
                 return false;
             }
-            rapidjson::Value &value = m_value[key];
-            return !value.IsNull();
+            Json::Value &value = m_value[key];
+            return !value.isNull();
         }
 
         PlannerDomValue valueForKey(const char *key) const {
-            rapidjson::Value &value = m_value[key];
-            if (value.IsNull()) {
+            Json::Value &value = m_value[key];
+            if (value.isNull()) {
                 char msg[1024];
                 snprintf(msg, 1024, "PlannerDomValue: %s key is null or missing", key);
                 throw SerializableEEException(VOLT_EE_EXCEPTION_TYPE_EEEXCEPTION, msg);
@@ -123,16 +124,16 @@ namespace voltdb {
         }
 
         int arrayLen() const {
-            if (m_value.IsArray() == false) {
+            if (m_value.isArray() == false) {
                 char msg[1024];
                 snprintf(msg, 1024, "PlannerDomValue: value is not an array");
                 throw SerializableEEException(VOLT_EE_EXCEPTION_TYPE_EEEXCEPTION, msg);
             }
-            return m_value.Size();
+            return m_value.size();
         }
 
         PlannerDomValue valueAtIndex(int index) const {
-            if (m_value.IsArray() == false) {
+            if (m_value.isArray() == false) {
                 char msg[1024];
                 snprintf(msg, 1024, "PlannerDomValue: value is not an array");
                 throw SerializableEEException(VOLT_EE_EXCEPTION_TYPE_EEEXCEPTION, msg);
@@ -141,9 +142,9 @@ namespace voltdb {
         }
 
     private:
-        PlannerDomValue(rapidjson::Value &value) : m_value(value) {}
+        PlannerDomValue(Json::Value &value) : m_value(value) {}
 
-        rapidjson::Value &m_value;
+        Json::Value &m_value;
     };
 
     /**
@@ -155,11 +156,16 @@ namespace voltdb {
     class PlannerDomRoot {
     public:
         PlannerDomRoot(const char *jsonStr) {
-            m_document.Parse<0>(jsonStr);
+            Json::Reader reader;
+            bool parsingSuccessful = reader.parse(jsonStr, m_document);
+            if (!parsingSuccessful) {
+                throw SerializableEEException(VOLT_EE_EXCEPTION_TYPE_EEEXCEPTION,
+                                          "PlannerDomValue: can't parse JSON");
+            }
         }
 
         bool isNull() {
-            return m_document.IsNull();
+            return m_document.isNull();
         }
 
         PlannerDomValue rootObject() {
@@ -167,7 +173,7 @@ namespace voltdb {
         }
 
     private:
-        rapidjson::Document m_document;
+        Json::Value m_document;
     };
 }
 
