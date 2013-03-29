@@ -63,6 +63,7 @@
 #include "expressions/expressions.h"
 #include "common/types.h"
 #include "common/ValuePeeker.hpp"
+#include "common/PlannerDomValue.h"
 
 
 using namespace std;
@@ -293,7 +294,11 @@ AE * makeTree(AE *tree, queue<AE*> &q) {
 AbstractExpression * convertToExpression(queue<AE*> &e) {
     AE *tree = makeTree(NULL, e);
     json_spirit::Object json = tree->serializeValue();
-    AbstractExpression * exp = AbstractExpression::buildExpressionTree(json);
+    std::string jsonText = json_spirit::write(json);
+
+    PlannerDomRoot domRoot(jsonText.c_str());
+
+    AbstractExpression * exp = AbstractExpression::buildExpressionTree(domRoot.rootObject());
     delete tree;
     return exp;
 }
